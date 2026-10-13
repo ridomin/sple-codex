@@ -50,6 +50,24 @@ test('playlist reads use item, liked reads use track; access/unsupported/filter 
   const blocked = await setup(t, () => ({ status: 403, body: { error: { message: 'denied' } } })); await assert.rejects(blocked.provider.getPlaylistTracks(id, { limit: 100 }), e => e.reason === 'not-owned');
   const absent = await setup(t, () => ({ status: 404, body: {} })); await assert.rejects(absent.provider.getPlaylist(id), e => e.resourceType === 'playlist'); await assert.rejects(absent.provider.getPlaylistTracks(id, { limit: 100 }), e => e.reason === 'not-owned');
 });
+test('unnamed playlists use a display fallback without losing metadata or pagination', async t => {
+  const unnamed = { ...fixtures.playlist, name: '' };
+  const s = await setup(t, url => ({ body: url.pathname === '/v1/me/playlists'
+    ? { items: [unnamed, { ...fixtures.playlist, id: trackId }], total: 3, next: 'https://api.spotify.com/v1/me/playlists?offset=2' }
+    : unnamed }));
+  const page = await s.provider.listPlaylists({ limit: 2 });
+  assert.equal(page.items.length, 2);
+  assert.deepEqual(page.items.map(p => p.name), ['(untitled)', 'Road Trip']);
+  assert.equal(page.total, 3); assert.deepEqual(page.next, { offset: 2 });
+  const playlist = await s.provider.getPlaylist(id);
+  assert.deepEqual(page.items[0], playlist);
+  assert.equal(playlist.id, id); assert.equal(playlist.owner.id, 'me');
+  assert.equal(playlist.trackCount, 1); assert.equal(playlist.itemsReadable, true);
+  for (const name of [undefined, null, 42, {}]) {
+    const invalid = await setup(t, () => ({ body: { items: [{ ...unnamed, name }], total: 1, next: null } }));
+    await assert.rejects(invalid.provider.listPlaylists({ limit: 50 }), /Invalid Spotify response: playlist.name/);
+  }
+});
 test('writes use current endpoints, preserve duplicate tracks, and batch failures are reported', async t => {
   const s = await setup(t, (url, init) => ({ status: init.method === 'DELETE' ? 204 : 201, body: url.pathname === '/v1/me/playlists' ? fixtures.playlist : { snapshot_id: 'snapshot' } }));
   assert.equal((await s.provider.createPlaylist({ name: 'Road Trip', public: false })).id, id);

@@ -121,7 +121,9 @@ export class SpotifyProvider implements Provider {
     const p = object(value, 'playlist'), owner = object(p.owner, 'playlist.owner');
     const ownerId = string(owner.id, 'playlist.owner.id'), id = string(p.id, 'playlist.id');
     if (!this.parsePlaylistRef(id)) throw new ProviderError('Invalid Spotify response: playlist.id');
-    const summary: PlaylistSummary = { id, ref: id, name: string(p.name, 'playlist.name'), owner: { id: ownerId, ...(text(owner.display_name) ? { displayName: text(owner.display_name)! } : {}) }, owned: ownerId === userId, itemsReadable: ownerId === userId || isRecord(p.items) };
+    // Empty display names must not prevent listing otherwise valid playlists.
+    if (typeof p.name !== 'string') throw new ProviderError('Invalid Spotify response: playlist.name');
+    const summary: PlaylistSummary = { id, ref: id, name: p.name || '(untitled)', owner: { id: ownerId, ...(text(owner.display_name) ? { displayName: text(owner.display_name)! } : {}) }, owned: ownerId === userId, itemsReadable: ownerId === userId || isRecord(p.items) };
     if (text(p.description) !== undefined) summary.description = text(p.description)!;
     if (typeof p.public === 'boolean') summary.public = p.public;
     if (typeof p.collaborative === 'boolean') summary.collaborative = p.collaborative;
