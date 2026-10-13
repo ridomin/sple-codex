@@ -1,0 +1,21 @@
+{
+  "version": 1,
+  "stateBackend": "local",
+  "defaultModel": "gpt-6-luna",
+  "agentModelOverrides": {
+    "luigi": "gpt-6-astra",
+    "clemens": "gpt-6-luna",
+    "saul": "gpt-6-luna",
+    "thomas": "gpt-6-luna",
+    "david": "gpt-6-luna",
+    "scribe": "gpt-6-luna",
+    "ralph": "gpt-6-luna",
+    "rai": "gpt-6-luna",
+    "fact-checker": "gpt-6-luna",
+    "Luigi": "gpt-6-astra"
+  },
+  "agentReasoningEffortOverrides": {
+    "luigi": "high",
+    "Luigi": "high"
+  }
+}

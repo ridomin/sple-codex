@@ -150,3 +150,11 @@ Each attempt produces one `HttpLogEntry`: method, path with query string (values
 | Refresh failures propagate | Getting a token for a request refreshes an expired access token, and any refresh error reaches the caller. It is never turned into "not logged in". No stored refresh token → `AuthRequiredError('token-expired')` (§3). |
 | Status stays offline | `auth status` reads `tokens.json` only and never refreshes (ADR 0007 A10). |
 
+## Amendment 2 (M0 retry safety, 2026-10-13)
+
+The HTTP implementation defaults to transient retries for `GET`, `HEAD` and `OPTIONS` only. A network failure or 5xx from a write may follow a successful remote mutation; the client does not repeat such a request unless the adapter explicitly marks it `retrySafe` after establishing idempotency. It reports the uncertain outcome or the HTTP failure with exit 1. Playlist creation and track insertion must not opt into blind retries.
+
+An explicit 401 may refresh and retry once; an explicit 429 may honor `Retry-After` and retry within the existing budget, including on writes, because those responses reject the request. Caller cancellation propagates without retry. Before each attempt, the adapter's optional quota hook is called so failed/retried requests can be charged individually.
+
+This supersedes the unconditional network/5xx retry rule in §1. Retry constants, proactive refresh and single-flight persistence stay unchanged.
+

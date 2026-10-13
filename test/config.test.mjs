@@ -1,0 +1,75 @@
+import { test } from 'node:test'
+import assert from 'node:assert/strict'
+import { mkdtemp, readFile, writeFile, stat, rm, mkdir } from 'node:fs/promises'
+import { tmpdir } from 'node:os'
+import { join } from 'node:path'
+import { getConfigDir, getConfigFilePath } from '../dist/core/config/paths.js'
+import { loadConfig, parseEnv } from '../dist/core/config/config.js'
+import { TokenStore, assertStoredToken, isRecord } from '../dist/core/config/token-store.js'
+import { writeAtomic } from '../dist/core/config/atomic-file.js'
+import { tokenStatus } from '../dist/core/auth/status.js'
+import { mergeTokenResponse } from '../dist/core/http/refresh.js'
+
+export const token = { accessToken: 'old-token', refreshToken: 'refresh-token', userId: 'me', scopes: ['read'], grantedAt: '2026-10-01T00:00:00Z' }
+test('platform paths respect XDG, macOS, APPDATA and fallback rules', () => {
+  assert.equal(getConfigDir('linux', {}, '/home/test'), join('/home/test', '.config', 'sple'))
+  assert.equal(getConfigDir('linux', { XDG_CONFIG_HOME: '/custom' }, '/home/test'), join('/custom', 'sple'))
+  assert.equal(getConfigDir('darwin', { XDG_CONFIG_HOME: '/ignored' }, '/home/test'), join('/home/test', 'Library', 'Application Support', 'sple'))
+  assert.equal(getConfigDir('win32', { APPDATA: '/profile' }, '/home/test'), join('/profile', 'sple'))
+  assert.equal(getConfigDir('win32', {}, '/home/test'), join('/home/test', '.sple'))
+  assert.equal(getConfigDir('freebsd', {}, '/home/test'), join('/home/test', '.sple'))
+  assert.equal(getConfigFilePath('tokens.json'), join(getConfigDir(), 'tokens.json'))
+})
+test('dotenv subset and process precedence, including explicitly empty environment', async t => {
+  const dir = await mkdtemp(join(tmpdir(), 'sple-config-')); t.after(() => rm(dir, { recursive: true, force: true }))
+  // eslint-disable-next-line no-template-curly-in-string -- dotenv deliberately preserves literal placeholders
+  assert.deepEqual(parseEnv('\uFEFF# hi\r\nA="value"\nB=\'two\'\nC=${A}\n\n'), { A: 'value', B: 'two', C: '${A}' })
+  assert.throws(() => parseEnv('invalid'), /line 1/)
+  assert.throws(() => parseEnv('A="bad'), /line 1/)
+  const path = join(dir, '.env'); const warnings = []
+  await writeFile(path, 'SPLE_SPOTIFY_CLIENT_ID=file\nSPLE_DEFAULT_PROVIDER=fake\nSPLE_ENABLE_FAKE_PROVIDER=1\nSPLE_YOUTUBE_MUSIC_CLIENT_ID=google\nSPLE_GOOGLE_CLIENT_SECRET=secret\n', { mode: 0o644 })
+  const env = { SPLE_SPOTIFY_CLIENT_ID: ' process ', SPLE_DEFAULT_PROVIDER: '' }
+  const config = await loadConfig({ directory: dir, env, platform: 'linux', warn: line => warnings.push(line) })
+  assert.equal(config.spotifyClientId, 'process'); assert.equal(config.defaultProvider, 'spotify'); assert.equal(config.enableFakeProvider, true)
+  assert.equal(config.youtubeClientId, 'google'); assert.equal(config.googleClientSecret, 'secret')
+  if (process.platform !== 'win32') assert.match(warnings[0], /chmod 600/)
+  assert.deepEqual(env, { SPLE_SPOTIFY_CLIENT_ID: ' process ', SPLE_DEFAULT_PROVIDER: '' })
+  await writeFile(path, 'SPLE_GOOGLE_CLIENT_SECRET="broken')
+  const invalid = await loadConfig({ directory: dir, env: {}, platform: 'win32', warn: line => warnings.push(line) })
+  assert.equal(invalid.googleClientSecret, undefined); assert.match(warnings.at(-1), /Failed to load/); assert.doesNotMatch(warnings.at(-1), /broken/)
+  assert.equal((await loadConfig({ directory: join(dir, 'missing'), env: {} })).defaultProvider, 'spotify')
+})
+test('atomic token persistence preserves providers, reserved accounts, permissions and logout', async t => {
+  const dir = await mkdtemp(join(tmpdir(), 'sple-tokens-')); t.after(() => rm(dir, { recursive: true, force: true }))
+  const store = new TokenStore(join(dir, 'nested'))
+  assert.equal(await store.loadTokens('spotify'), null); await store.deleteTokens('spotify')
+  await store.saveTokens('spotify', token); await store.saveTokens('fake', { ...token, userId: 'fake' })
+  assert.deepEqual(await store.loadTokens('spotify'), token)
+  if (process.platform !== 'win32') assert.equal((await stat(store.path)).mode & 0o777, 0o600)
+  const file = JSON.parse(await readFile(store.path, 'utf8'))
+  file.providers.spotify.accounts.push({ reserved: true })
+  await writeFile(store.path, JSON.stringify(file))
+  await store.saveTokens('spotify', { ...token, accessToken: 'new' })
+  assert.deepEqual(JSON.parse(await readFile(store.path, 'utf8')).providers.spotify.accounts[1], { reserved: true })
+  await store.deleteTokens('spotify'); assert.equal(await store.loadTokens('spotify'), null); assert.equal((await store.loadTokens('fake')).userId, 'fake')
+  await writeFile(store.path, '{'); await assert.rejects(store.loadTokens('fake'), /expected JSON/)
+  await writeFile(store.path, JSON.stringify({ schemaVersion: 2, providers: {} })); await assert.rejects(store.loadTokens('fake'), /schemaVersion/)
+  await writeFile(store.path, JSON.stringify({ schemaVersion: 1, providers: { fake: { accounts: 'bad' } } })); await assert.rejects(store.loadTokens('fake'), /accounts/)
+  await writeFile(store.path, JSON.stringify({ schemaVersion: 1, providers: { fake: { accounts: [] } } })); assert.equal(await store.loadTokens('fake'), null)
+  await assert.rejects(store.saveTokens('fake', { ...token, accessToken: '' }), /Invalid stored token/)
+  await mkdir(join(dir, 'destination')); await assert.rejects(writeAtomic(join(dir, 'destination'), 'value'))
+  assert.equal(isRecord([]), false); assert.equal(isRecord(null), false)
+})
+test('stored tokens reject malformed fields without disclosing their contents', () => {
+  for (const patch of [{ accessToken: '' }, { userId: '' }, { scopes: [1] }, { grantedAt: 'bad' }, { refreshToken: 12 }, { expiresAt: '2026-10-01' }, { expiresAt: '2026-02-30T00:00:00Z' }, { displayName: false }]) assert.throws(() => assertStoredToken({ ...token, ...patch }), /Invalid stored token/)
+  assert.deepEqual(tokenStatus(null), { loggedIn: false, scopes: [] })
+  assert.equal(tokenStatus({ ...token, displayName: 'Name', expiresAt: token.grantedAt, refreshTokenExpiresAt: token.grantedAt }).user.displayName, 'Name')
+})
+test('refresh merges rotation, scopes and both expiries while preserving omitted fields', () => {
+  const now = Date.parse('2026-10-13T00:00:00Z')
+  const first = mergeTokenResponse(token, { access_token: 'new', refresh_token: 'rotated', scope: 'read write', expires_in: 3600, refresh_token_expires_in: 604800 }, now)
+  assert.deepEqual(first.scopes, ['read', 'write']); assert.equal(first.refreshToken, 'rotated'); assert.equal(first.expiresAt, '2026-10-13T01:00:00.000Z')
+  const second = mergeTokenResponse(first, { access_token: 'again' }, now)
+  assert.equal(second.refreshTokenExpiresAt, first.refreshTokenExpiresAt); assert.equal(second.refreshToken, 'rotated')
+  for (const response of [null, {}, { access_token: 'new', expires_in: -1 }, { access_token: 'new', expires_in: Infinity }, { access_token: 'new', refresh_token: 1 }, { access_token: 'new', scope: [] }]) assert.throws(() => mergeTokenResponse(token, response, now), /Invalid token response/)
+})

@@ -108,7 +108,7 @@
         "album": { "type": "string" },
         "durationMs": { "type": "integer", "minimum": 0 },
         "isrc": {
-          "description": "null when the provider does not supply ISRC (Spotify since Feb 2026); absent when not resolved.",
+          "description": "null when the provider does not supply ISRC (when unavailable); absent when not resolved.",
           "type": ["string", "null"]
         },
         "addedAt": { "type": "string", "format": "date-time" },

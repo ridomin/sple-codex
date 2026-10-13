@@ -6,7 +6,7 @@
 - **Related:** `docs/requirements.md` CLI-1 to CLI-8, NFR-3, NFR-4, FR-SEARCH-1/2/4, FR-PL-1 to FR-PL-4, FR-PL-6, FR-EXP-1/6, FR-AUTH-4; ADR 0003 (Provider interface, incl. Amendment 1); ADR 0005 (Canonical track model); ADR 0008 (Canonical playlist file, M1-25)
 - **Supersedes:** n/a
 
-> ADR 0006 (stack) is reserved for M1-29.
+> Stack and tooling are defined in [ADR 0006](0006-stack-and-tooling.md).
 
 ## Context
 
@@ -478,4 +478,30 @@ Supersedes the "implemented in-house, no `debug` dependency" rule in §6 and the
 |---|---|
 | A2 error message | `AuthRequiredError` with reason `revoked` and no `scope` prints the error's own message, which names the provider and the login command. Other `AuthRequiredError`s are unchanged. |
 | §3.7 / A10 `auth status` | When the stored token has `refreshTokenExpiresAt`, the human form adds `  Refresh token expires: <ISO>` after `Token expires`. If it has passed, the line ends in ` (expired)` and stderr gets `Warning: <Provider> refresh token has expired; run "sple auth login --provider <id>"` instead of the "will be refreshed on next use" warning. `--json` adds `refreshTokenExpiresAt` (omitted when unknown). Status still makes no network call. |
+
+## Amendment 3 (M2 polish, 2026-10-13)
+
+### Playlist filtering
+
+`playlist list --filter <value>` composes with `--owned` or `--followed` and is applied after collecting all pages. A plain value is a case-insensitive substring, treated literally. A value beginning with `/` uses `/pattern/flags`, with optional `i`, `m`, `s`, `u` flags. Invalid syntax, duplicate flags and stateful `g`/`y` flags exit 2 before requests. JSON `total` is the filtered count.
+
+### Playlist editing
+
+`playlist edit <playlist|-> [--name TEXT] [--description TEXT] [--public|--private] [--dry-run]` uses the shared resolver and requires exactly one input. At least one change is required; names must be non-empty. An empty description clears it. Visibility flags conflict; collaborative playlists must remain private. Providers without `updatePlaylist` exit 2. No confirmation is required for a metadata edit.
+
+`--json` emits `{ dryRun: boolean, playlist: PlaylistSummary, changes: { name?, description?, public? } }`. Dry runs show proposed metadata without mutation. Quiet output is the playlist ID; TSV columns are `id,name,description,public,url`. TTY output is `Updated playlist "<name>" (<id>)`, or `[dry-run] Would edit playlist "<name>" (<id>) in <Provider>`. The dry-run sentence also goes to stderr in TSV mode.
+
+Spotify editing requires ownership, `playlist-read-private` for the metadata read and both modify scopes for the write, then uses `PUT /v1/playlists/{id}`. The explicit field-setting PUT is idempotent and opts into transient retries (ADR 0010 Amendment 2). The acknowledged patch is merged over validated current metadata; there is no second read after the write.
+
+### Field searches
+
+`search` passes the complete query text to the adapter unchanged. Spotify supports `artist:`, `album:`, `year:`, and `isrc:` for the documented applicable search types. Quote queries containing spaces; unsupported query syntax is handled by Spotify. Core does not construct provider field syntax.
+
+### Export all and its index
+
+`export --all -o <directory> [--format json|csv] [--force]` is now supported and includes Liked Songs when the provider can read them. `--all` cannot combine with explicit playlist inputs or `--liked`, and always requires a directory destination. Collect every playlist page, resolve metadata, then export readable sources. Read restrictions (`not-owned`, including a later access denial) are warnings, skip that playlist, and do not themselves fail the command. Other failures use the existing partial-failure rules.
+
+The destination includes an atomic `index.json`, even with zero playlists or on a partial run. Its target participates in the same overwrite preflight as all playlist files. `--force` is required to replace it. The index has `{ schemaVersion: 1, exportedAt, provider, entries }`; each entry has `input`, optional `id`/`name`, `kind: 'playlist'|'liked'`, and `status: 'exported'|'skipped'`. Exported entries include absolute `path` and `trackCount`. Skipped entries have `reason: 'not-owned'|'error'`; actual failures also include `ErrorInfo`.
+
+`ExportOutput` keeps its original `files` and `skipped` fields and adds optional `indexPath`. `skipped` holds actual failures; expected unreadable sources are represented in the index and warning count. Quiet/TSV file results list playlist export files, excluding the index. With `--json` and a failure, the compact `PartialFailure` error remains the final stderr line.
 

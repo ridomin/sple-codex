@@ -1,8 +1,8 @@
 # sple — Requirements
 
-> Status: **Draft v0.4** (2026-10-07). v0.4 is the spec review for ports: the requirements and ADRs now describe `sple` precisely enough to implement it in another language, decisions are recorded in [§10](#10-open-questions-and-decisions) (Q19–Q26). **No implementation exists yet** (confirmed 2026-10-07 — this repo currently contains only `docs/`); §12 is reserved for implementation deviations and will start being populated once code lands. v0.3 incorporated the grill-me review of v0.2. Open questions and decisions are tracked in §10 and `docs/adr/`.
+> Status: **Draft v0.6** (2026-10-13). M0 foundations and M1/M2 Spotify commands exist; M3–M4 remain unimplemented. Latest amendments define the target contracts; implementation status and remaining boundaries are tracked in §11/§12. Rido confirmed S1–S3 on 2026-10-13; provenance and S4 fallback are recorded in the spike report (§10).
 >
-> **Reading order for a port:** this file (what), then ADR 0003 (provider interface), ADR 0004 (files), ADR 0005 (track model), ADR 0007 (CLI contract), ADR 0008 (canonical file + `schemas/`), ADR 0009 (matching), ADR 0010 (HTTP and OAuth). ADRs 0001/0002 are background for Amazon and YouTube.
+> **Reading order for a port:** this file (what), ADR 0006 (stack and implementation baseline), then ADR 0003 (provider interface), ADR 0004 (files), ADR 0005 (track model), ADR 0007 (CLI contract), ADR 0008 (canonical file + `schemas/`), ADR 0009 (matching), ADR 0010 (HTTP and OAuth). ADRs 0001/0002 are background for Amazon and YouTube.
 
 ## 1. Purpose
 
@@ -62,7 +62,7 @@ Priority: **M** = must have (MVP), **S** = should have (MVP if time allows), **L
 | FR-PL-3 | M | `sple playlist create <name> [--description] [--public\|--private] [--collaborative]`. New playlists are private by default. `--collaborative` implies private and cannot be combined with `--public`; on a provider without `supportsCollaborative` it is a usage error (exit 2). |
 | FR-PL-4 | M | `sple playlist remove <playlist>` removes a playlist from the user's library. `<playlist>` can be an ID, a URI, a URL, or a name; name matching follows FR-PL-2 (exit 2 on ambiguity). On Spotify this is an *unfollow*, because the API cannot delete playlists; Amazon Music and YouTube truly delete. The CLI and docs must say what `remove` does on each provider (`canDeletePlaylist`). |
 | FR-PL-5 | S | `sple playlist edit <playlist>` changes the name, description, or visibility. `<playlist>` can be an ID, a URI, a URL, or a name; name matching follows FR-PL-2 (exit 2 on ambiguity). |
-| FR-PL-6 | M | Every command that changes data supports `--dry-run`. `playlist remove` and `import` ask for confirmation unless `--yes` is passed; without `--yes` a non-terminal stdin is a usage error (exit 2), and declining exits 1 with nothing changed. A dry run never asks. |
+| FR-PL-6 | M | Every playlist mutation, import and migration supports `--dry-run` (auth token/grant changes and requested export/report files are excluded; ADR 0006). `playlist remove` and `import` ask for confirmation unless `--yes` is passed; without `--yes` a non-terminal stdin is a usage error (exit 2), and declining exits 1 with nothing changed. A dry run never asks. |
 
 > **Scope note:** `sple` manages playlists as whole units. It has no commands for editing a playlist's tracks (add, remove, dedupe, reorder), and it never writes likes / saved tracks. The only time `sple` writes tracks is when it fills a newly created playlist during import or migration (FR-EXP-7, FR-MIG); that happens inside the provider adapter and is never exposed as a command.
 
@@ -138,7 +138,7 @@ Command grammar, output modes, `--json` shapes, error output, stdin input, parti
   - **Search:** `limit` is at most 10 per page (default 5), and `limit + offset <= 1000` (spike S3).
   - **Page sizes (spike S3):** `/me/playlists` 50, `/me/tracks` 50, `/playlists/{id}/items` 100. Reading 1,000 tracks takes about 2-4 s sequentially, so NFR-5 is feasible.
   - **Premium detection (spike S4, unverified):** the exact error for an app owner without Premium was not observed. Fallback: a 403 whose `error.message` matches `/premium/i` is treated as Premium required (FR-AUTH-2).
-  - **Endpoint changes:** `/playlists/{id}/tracks` → `/playlists/{id}/items` (response field `track` → `item`, request parameter `tracks` → `items`); create playlist uses `POST /me/playlists` (`POST /users/{id}/playlists` was removed); unfollowing a playlist uses `DELETE /me/library` with the playlist URI; batch `GET /tracks`, `GET /users/{id}`, and `GET /users/{id}/playlists` were removed. `GET /me` no longer returns `email`, `country`, or `product`. `GET /me/tracks` (Liked Songs) still works.
+  - **Endpoint changes:** `/playlists/{id}/tracks` → `/playlists/{id}/items` (response field `track` → `item`; add-items requests still use `{ "uris": [...] }`, ADR 0003); create playlist uses `POST /me/playlists` (`POST /users/{id}/playlists` was removed); unfollowing a playlist uses `DELETE /me/library` with the playlist URI; batch `GET /tracks`, `GET /users/{id}`, and `GET /users/{id}/playlists` were removed. `GET /me` no longer returns `email`, `country`, or `product`. `GET /me/tracks` (Liked Songs) still works.
   - Recommendations, audio features, and similar endpoints have been unavailable to new apps since late 2024.
   - Playlists cannot be deleted, only unfollowed.
   - **Redirect URIs** ([docs](https://developer.spotify.com/documentation/web-api/concepts/redirect_uri)): `localhost` is not allowed; loopback must be `http://127.0.0.1` or `http://[::1]`. A loopback URI registered without a port accepts a dynamic port in the authorization request.
@@ -230,7 +230,7 @@ Command grammar, output modes, `--json` shapes, error output, stdin input, parti
 
 ### Spikes (verify against the live API before the milestone noted)
 
-> **Editor's note (2026-10-07):** the detailed report file `docs/spikes/M1-spotify-spikes.md`, linked from every S1–S4 row below, does **not exist in this repository** — only `docs/requirements.md` and `docs/adr/` are present; there is no `docs/spikes/` directory. The dated resolutions below (e.g. "Resolved 2026-10-02") may represent genuine manual API research (e.g. via curl/Postman) done ahead of any code existing, in which case the report file simply needs to be authored/committed and the links fixed — or they may be stale/fabricated placeholders that need to be re-verified once M1 starts. This cannot be determined from the repo alone; **a human (Rido) must confirm which it is** before M1 work relies on these results.
+> **Evidence update (2026-10-13):** Rido confirmed S1–S3: "verified, assume the spikes work". [The spike record](spikes/M1-spotify-spikes.md) now exists and distinguishes owner-confirmed live findings from current public documentation and synthetic automated fixtures. Original captures were not supplied; S4 remains unverified with its approved fallback.
 
 | ID | Before | Question | Resolution rule |
 |---|---|---|---|
@@ -242,13 +242,13 @@ Command grammar, output modes, `--json` shapes, error output, stdin input, parti
 
 ## 11. Milestones
 
-> **Status (2026-10-07):** no implementation exists yet — this repo contains only `docs/`. Every milestone below is **not started**. The scope descriptions define what each milestone covers once work begins; none should be read as completed. **M0 — Foundations** is the next milestone to execute.
+> **Status (2026-10-13):** M0 foundations and M1/M2 Spotify commands are implemented; M3–M4 are not started. Scope and tooling choices are recorded in ADR 0006. Older ADR references to completed M1–M3 work are historical framing, not evidence of implemented commands.
 
 | Milestone | Scope | Status |
 |---|---|---|
-| **M0 — Foundations** | Repo tooling, provider interface + capabilities ([ADR-0003](adr/0003-provider-interface-and-capabilities.md)) + fake provider, config, multi-provider token store (FR-AUTH-3/6), HTTP client, ADRs for the stack and canonical model. | Not started — next up |
-| **M1 — Spotify MVP** | Spikes S1–S4 first. FR-AUTH (M), FR-SEARCH (M), FR-PL (M), FR-EXP (M, including Liked Songs), CLI-1…8. | Not started |
-| **M2 — Spotify polish** | FR-PL-5 (edit), FR-SEARCH-3 (field filters), FR-EXP-5 (export all), FR-PL-1 `--filter` option. | Not started |
+| **M0 — Foundations** | Repo tooling, provider interface + capabilities ([ADR-0003](adr/0003-provider-interface-and-capabilities.md)) + fake provider, config, multi-provider token store (FR-AUTH-3/6), HTTP client, ADRs for the stack and canonical model. | Implemented — verification and boundary in ADR 0006 |
+| **M1 — Spotify MVP** | Spikes S1–S4 first. FR-AUTH (M), FR-SEARCH (M), FR-PL (M), FR-EXP (M, including Liked Songs), CLI-1…8. | Implemented — offline tests; live login/export walkthrough not repeated |
+| **M2 — Spotify polish** | FR-PL-5 (edit), FR-SEARCH-3 (field filters), FR-EXP-5 (export all), FR-PL-1 `--filter` option. | Implemented — contracts in ADR 0007 Amendment 3 |
 | **M3 — Import + matching** | FR-EXP-7, matching engine (strategy chain, metadata matching as the core), match report (tested against the fake provider). | Not started |
 | **M4a — YouTube Music, read-only** | Spikes S5–S7 first. `docs/PRIVACY.md` (NFR-9) before any YouTube data is stored. Google auth (login/logout with revocation/status), search, `playlist list/show`, export, approximate Liked export. Uses `youtube.readonly` only. | Not started |
 | **M4b — YouTube Music, writes + migrate** | Create/remove playlists, populate-playlist, quota ledger and cost estimate, resumable `migrate` (FR-MIG). Enables Switcher persona. | Not started |
@@ -256,9 +256,10 @@ Command grammar, output modes, `--json` shapes, error output, stdin input, parti
 
 ## 12. Implementation status and known deviations
 
-The specification (this file and the ADRs) is the target. This section is reserved to list where a reference implementation does not yet match it, so a port can tell the spec apart from implementation quirks. **As of 2026-10-07, no implementation exists in this repository**, so there is nothing to compare against the spec yet and the table below is empty. This section will start being populated once code lands (first candidate: the M0 reference implementation), and each row is removed again when the corresponding code is fixed.
+The specification (this file and the ADRs) is the target. As of 2026-10-13, M0–M2 exist; import and migration remain future milestones. Latest amendments and ADR 0006 record intentional contract clarifications. Remaining delivery boundaries follow.
 
 | # | Spec | Reference implementation today | Issue |
 |---|---|---|---|
-| — | *(none — no code exists yet)* | | |
+| 1 | Live performance (NFR-5) | A mocked 1,000-track export verifies ordered, bounded pagination; real connection throughput has not been independently measured. | S1–S3 were owner-confirmed; S4 uses its documented fallback. |
+| 2 | YouTube quota ledger and migration state (M4) | Generic quota accounting is per process; no persistent ledger/cache/checkpoints yet. | Define persistence and duplicate-preserving resume semantics before M4b. |
 
