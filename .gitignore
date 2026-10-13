@@ -22,3 +22,8 @@ lerna-debug.log*
 # temp directory
 .temp
 .tmp
+
+# sple build/test artifacts and local credentials
+/coverage
+tokens.json
+*.tgz

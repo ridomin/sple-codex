@@ -1,0 +1,7 @@
+{
+  "_provenance": "Synthetic documented-shape fixtures; not live API captures.",
+  "track": { "id": "1111111111111111111111", "uri": "spotify:track:1111111111111111111111", "type": "track", "name": "Song, with quotes \"yes\"", "artists": [{ "name": "Artist" }], "album": { "name": "Album" }, "duration_ms": 180000, "external_ids": { "isrc": "USAAA2600001" }, "external_urls": { "spotify": "https://open.spotify.com/track/1111111111111111111111" } },
+  "playlist": { "id": "2222222222222222222222", "name": "Road Trip", "description": "Description", "owner": { "id": "me", "display_name": "Listener" }, "public": false, "collaborative": false, "items": { "total": 1 }, "external_urls": { "spotify": "https://open.spotify.com/playlist/2222222222222222222222" } },
+  "token": { "access_token": "synthetic-access", "refresh_token": "synthetic-refresh", "expires_in": 3600, "scope": "playlist-read-private playlist-read-collaborative user-library-read playlist-modify-public playlist-modify-private" },
+  "user": { "id": "me", "display_name": "Listener" }
+}

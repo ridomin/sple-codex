@@ -347,3 +347,9 @@ Login requests the union of the table: `playlist-read-private playlist-read-coll
 | `populatePlaylist` | `POST /v1/playlists/{id}/items` with body `{ "uris": [...] }` (201 + `snapshot_id`), at most 100 per request, in order. Refs that are not `spotify:track:<id>` go to `failed` (`Not a Spotify track URI`) without a request. Auth, quota and rate-limit errors propagate; any other error marks every ref in that batch failed with the error message and the next batch runs. `skipExisting` first pages through `GET /v1/playlists/{id}/items` and leaves out refs already present (neither added nor failed). |
 
 Track mapping: `title` = `name` (`"(untitled)"` if empty), `artists` = artist names (`["Unknown Artist"]` if none), `album` = `album.name`, `durationMs` = `duration_ms`, `isrc` = `external_ids.isrc` when present, otherwise `null`, `refs.spotify` = `uri`.
+
+## Amendment 3 (M2 editing, 2026-10-13)
+
+Spotify now implements the existing optional `updatePlaylist` method. It checks both `playlist-modify-public` and `playlist-modify-private`, reads current metadata using `getPlaylist` (`playlist-read-private`), rejects non-owned playlists, then sends the supplied name/description/visibility patch to `PUT /v1/playlists/{id}`. Empty patches and empty names are usage errors; collaborative playlists cannot be made public. Since setting the same fields again is idempotent, this PUT explicitly permits transient retries. The result merges the acknowledged patch over current `PlaylistSummary` metadata.
+
+The CLI and core continue to use the optional method contract without branching on provider IDs. Filter and export-all behavior are specified in ADR 0007 Amendment 3.

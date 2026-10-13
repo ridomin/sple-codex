@@ -1,0 +1,39 @@
+{
+  "name": "sple",
+  "version": "0.1.0",
+  "description": "A provider-neutral CLI for music playlists",
+  "type": "module",
+  "engines": {
+    "node": ">=24"
+  },
+  "bin": {
+    "sple": "dist/cli/main.js"
+  },
+  "exports": {
+    "./schemas/canonical-playlist.v1.schema.json": "./schemas/canonical-playlist.v1.schema.json"
+  },
+  "files": [
+    "dist",
+    "schemas",
+    "README.md",
+    "docs/user"
+  ],
+  "scripts": {
+    "build": "tsc",
+    "typecheck": "tsc --noEmit",
+    "test": "npm run build && node scripts/test.mjs",
+    "test:coverage": "npm run build && node scripts/test.mjs --coverage",
+    "check": "npm run typecheck && npm run test:coverage",
+    "prepack": "npm run build"
+  },
+  "dependencies": {
+    "debug": "^4.4.3"
+  },
+  "devDependencies": {
+    "@types/debug": "^4.1.12",
+    "@types/node": "^24.0.0",
+    "ajv": "^8.20.0",
+    "ajv-formats": "^3.0.1",
+    "typescript": "^5.9.3"
+  }
+}
