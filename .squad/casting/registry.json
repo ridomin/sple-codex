@@ -1,0 +1,59 @@
+{
+  "schema": "squad-agent-provenance/v1",
+  "schema_version": 1,
+  "revision": 2,
+  "generated_at": "2026-10-13T15:15:15.226Z",
+  "agents": {
+    "luigi": {
+      "display_name": "Luigi",
+      "persistent_name": "Luigi",
+      "role": "Lead",
+      "universe": "user-assigned",
+      "status": "active",
+      "created_at": "2026-10-13T15:15:15.226Z",
+      "updated_at": "2026-10-13T15:15:15.226Z",
+      "legacy_named": false
+    },
+    "clemens": {
+      "display_name": "Clemens",
+      "persistent_name": "Clemens",
+      "role": "CLI Engineer",
+      "universe": "user-assigned",
+      "status": "active",
+      "created_at": "2026-10-13T15:15:15.226Z",
+      "updated_at": "2026-10-13T15:15:15.226Z",
+      "legacy_named": false
+    },
+    "saul": {
+      "display_name": "Saul",
+      "persistent_name": "Saul",
+      "role": "Spotify Provider Engineer",
+      "universe": "user-assigned",
+      "status": "active",
+      "created_at": "2026-10-13T15:15:15.226Z",
+      "updated_at": "2026-10-13T15:15:15.226Z",
+      "legacy_named": false
+    },
+    "thomas": {
+      "display_name": "Thomas",
+      "persistent_name": "Thomas",
+      "role": "Test Engineer",
+      "universe": "user-assigned",
+      "status": "active",
+      "created_at": "2026-10-13T15:15:15.226Z",
+      "updated_at": "2026-10-13T15:15:15.226Z",
+      "legacy_named": false
+    },
+    "david": {
+      "display_name": "David",
+      "persistent_name": "David",
+      "role": "Technical Writer",
+      "universe": "user-assigned",
+      "status": "active",
+      "created_at": "2026-10-13T15:15:15.226Z",
+      "updated_at": "2026-10-13T15:15:15.226Z",
+      "legacy_named": false
+    }
+  },
+  "transaction_id": "cb28cef9-98d9-4820-be12-ede865bd01bc"
+}

@@ -353,3 +353,9 @@ Track mapping: `title` = `name` (`"(untitled)"` if empty), `artists` = artist na
 Spotify now implements the existing optional `updatePlaylist` method. It checks both `playlist-modify-public` and `playlist-modify-private`, reads current metadata using `getPlaylist` (`playlist-read-private`), rejects non-owned playlists, then sends the supplied name/description/visibility patch to `PUT /v1/playlists/{id}`. Empty patches and empty names are usage errors; collaborative playlists cannot be made public. Since setting the same fields again is idempotent, this PUT explicitly permits transient retries. The result merges the acknowledged patch over current `PlaylistSummary` metadata.
 
 The CLI and core continue to use the optional method contract without branching on provider IDs. Filter and export-all behavior are specified in ADR 0007 Amendment 3.
+
+## Amendment 4 (empty Spotify playlist names, 2026-10-13)
+
+The accepted fix in commit `2c4588c` permits an empty string in Spotify's playlist `name` field. Both `listPlaylists` and `getPlaylist` map it to `"(untitled)"` in `PlaylistSummary`, using the existing display-name fallback. The playlist remains in the result with its ID, ownership, readability, count and pagination metadata intact. Missing, null or non-string names still fail boundary validation with `ProviderError`.
+
+The fallback is part of the returned summary, so CLI name filtering/resolution and canonical exports also see `"(untitled)"`. This does not permit empty user-supplied names for playlist creation or editing. The regression test is `unnamed playlists use a display fallback without losing metadata or pagination` in `test/spotify.test.mjs`.

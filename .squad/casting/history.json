@@ -1,0 +1,23 @@
+{
+  "assignment_cast_snapshots": {
+    "confirmed-cast-r2-3e8da4aa-52e1-4f06-9b59-9143667b4f89": {
+      "created_at": "2026-10-13T15:15:15.226Z",
+      "agents": [
+        "luigi",
+        "clemens",
+        "saul",
+        "thomas",
+        "david"
+      ],
+      "universe": "user-assigned"
+    }
+  },
+  "universe_usage_history": [
+    {
+      "universe": "user-assigned",
+      "used_at": "2026-10-13T15:15:15.226Z"
+    }
+  ],
+  "transaction_id": "cb28cef9-98d9-4820-be12-ede865bd01bc",
+  "registry_revision": 2
+}
