@@ -13,7 +13,7 @@ node dist/cli/main.js --help
 node dist/cli/main.js auth status --json
 ```
 
-The checks compile strict TypeScript and run tests with an 80% line coverage gate on core and adapters. Provider HTTP requests are mocked. OAuth tests bind temporary listeners on `127.0.0.1`; they do not contact music services.
+The checks lint TypeScript with `ts-standard` and JavaScript tests/scripts with `standard`, compile strict TypeScript, and run Node's built-in `node:test` runner with an 80% line coverage gate on core and adapters. Use `npm run lint` to check StandardJS style or `npm run lint:fix` to apply automatic fixes. Tests use `node:assert/strict`; Jest and Vitest are not used. Provider HTTP requests are mocked. OAuth tests bind temporary listeners on `127.0.0.1`; they do not contact music services.
 
 For a local fake-provider demo on POSIX:
 

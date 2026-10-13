@@ -9,11 +9,11 @@ Use strict TypeScript and ESM, compiled by `tsc` to `dist/`. Target Node.js 24 o
 
 Distribute compiled JavaScript through an npm `bin` entry and expose the canonical schema via the package's `exports`. No standalone binary or CLI framework is needed. Arguments use `node:util.parseArgs`; HTTP uses native `fetch`; OAuth uses native crypto and HTTP; atomic token writes use native filesystem APIs.
 
-The only runtime dependency is `debug` (ADR 0007 A11). Development dependencies are TypeScript, Node/debug types, Ajv and ajv-formats. Ajv validates the canonical schema in tests only; application code does not depend on it.
+The only runtime dependency is `debug` (ADR 0007 A11). Development dependencies are TypeScript, Node/debug types, StandardJS (`ts-standard` for TypeScript and `standard` for JavaScript tests/scripts), Ajv and ajv-formats. Ajv validates the canonical schema in tests only; application code does not depend on it.
 
-Tests use Node's built-in test runner. The cross-platform launcher passes explicit argument arrays, avoiding shell differences in globs. Coverage must reach 80% lines across executable core and adapter modules. Fixtures and injected fetch/clock/sleep/random functions keep automated tests offline and deterministic. Real loopback listeners test OAuth callback validation and cleanup without contacting provider APIs.
+Tests use Node's built-in `node:test` runner and `node:assert/strict`; do not add Jest or Vitest. The cross-platform launcher passes explicit argument arrays, avoiding shell differences in globs. Coverage must reach 80% lines across executable core and adapter modules. Fixtures and injected fetch/clock/sleep/random functions keep automated tests offline and deterministic. Real loopback listeners test OAuth callback validation and cleanup without contacting provider APIs.
 
-CI runs typechecking, coverage and package inspection on Linux, macOS and Windows with Node 24. Compiled output, dependencies, coverage artifacts and local credentials are ignored.
+CI runs StandardJS linting, typechecking, coverage and package inspection on Linux, macOS and Windows with Node 24. Compiled output, dependencies, coverage artifacts and local credentials are ignored.
 
 ## Contract reconciliation
 

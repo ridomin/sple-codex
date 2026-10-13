@@ -21,9 +21,11 @@
   "scripts": {
     "build": "tsc",
     "typecheck": "tsc --noEmit",
+    "lint": "ts-standard \"src/**/*.ts\" && standard \"test/**/*.mjs\" \"scripts/**/*.mjs\"",
+    "lint:fix": "ts-standard --fix \"src/**/*.ts\" && standard --fix \"test/**/*.mjs\" \"scripts/**/*.mjs\"",
     "test": "npm run build && node scripts/test.mjs",
     "test:coverage": "npm run build && node scripts/test.mjs --coverage",
-    "check": "npm run typecheck && npm run test:coverage",
+    "check": "npm run lint && npm run typecheck && npm run test:coverage",
     "prepack": "npm run build"
   },
   "dependencies": {
@@ -34,6 +36,8 @@
     "@types/node": "^24.0.0",
     "ajv": "^8.20.0",
     "ajv-formats": "^3.0.1",
+    "standard": "^17.1.2",
+    "ts-standard": "^12.0.2",
     "typescript": "^5.9.3"
   }
 }
